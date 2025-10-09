@@ -30,12 +30,10 @@
 #include <time.h> /* clock_gettime() */
 #include <sys/mman.h> /* mlockall() */
 #include <sched.h> /* sched_setscheduler() */
-#include <stdbool.h>
 
 /****************************************************************************/
 
 #include "ecrt.h"
-
 
 /****************************************************************************/
 
@@ -45,6 +43,16 @@
 #define MAX_SAFE_STACK (8 * 1024) /* The maximum stack size which is
                                      guranteed safe to access without
                                      faulting */
+#include <time.h>
+#include <stdint.h>
+
+#ifndef CLOCK_TO_USE
+#define CLOCK_TO_USE CLOCK_MONOTONIC
+#endif
+
+#ifndef TIMESPEC2NS
+#define TIMESPEC2NS(ts) ( (uint64_t)(ts).tv_sec * 1000000000ULL + (uint64_t)(ts).tv_nsec )
+#endif
 
 /****************************************************************************/
 
@@ -69,51 +77,76 @@ static ec_slave_config_state_t sc_ana_in_state = {};
 // process data
 static uint8_t *domain1_pd = NULL;
 
-
 #define FirstSlavePos  0, 0
 
-
-
 #define TI5MOTOR 0x00522227, 0x00009253
-#define TIMESPEC2NS(T) ((uint64_t)(T).tv_sec * NSEC_PER_SEC + (T).tv_nsec)
-
-
-
 
 // offsets for PDO entries
 static unsigned int off_status_word;
 static unsigned int off_control_word;
-
-
-
+static unsigned int off_mode;
+static unsigned int off_pos;
+static unsigned int off_mode_display;
 
 const static ec_pdo_entry_reg_t domain1_regs[] = {
-    {FirstSlavePos,  TI5MOTOR, 0x6040, 0, &off_control_word},
-    {FirstSlavePos,  TI5MOTOR, 0x6041, 0, &off_status_word},
-
+    {FirstSlavePos,  TI5MOTOR, 0x6040, 0, &off_control_word},    /* Control Word */
+    {FirstSlavePos,  TI5MOTOR, 0x607A, 0, &off_pos},             /* Target Position */
+    {FirstSlavePos,  TI5MOTOR, 0x6041, 0, &off_status_word},     /* Status Word */
+    {FirstSlavePos,  TI5MOTOR, 0x6060, 0, &off_mode},            /* Mode of Operation (SINT) */
+    {FirstSlavePos,  TI5MOTOR, 0x6061, 0, &off_mode_display},    /* Mode of Operation Display (SINT) */
     {}
 };
 
 static unsigned int counter = 0;
 static unsigned int blink = 0;
 static unsigned int sync_ref_counter = 0;
+
+static uint16_t status;
+static uint16_t ctrl_word = 0;
+
+int8_t mode;
+int8_t mode_disp;
+static int i;
 /****************************************************************************/
 
-// out --------------------------
+// Analog in --------------------------
+
+// static const ec_pdo_entry_info_t el3102_pdo_entries[] = {
+//     {0x6040, 0 ,16},
+//     {0x6401, 0, 16}  // channel 2 value (alt.)
+// };
+
+// static const ec_pdo_info_t el3102_pdos[] = {
+//     {0x1600, 1, el3102_pdo_entries},
+//     {0x1A00, 1, el3102_pdo_entries + 1}
+// };
+
+// static const ec_sync_info_t el3102_syncs[] = {
+//     {2, EC_DIR_OUTPUT,1 ,el3102_pdos},
+//     {3, EC_DIR_INPUT, 1, el3102_pdos+1},
+//     {0xff}
+// };
+
+// Analog out -------------------------
 
 ec_pdo_entry_info_t slave_0_pdo_entries[] = {
-    {0x6040,0x00,16},
+    {0x6040, 0x00, 16},
+    {0x607a, 0x00, 32},
+    {0x60ff, 0x00, 32},
+    {0x6071, 0x00, 16},
+    {0x6060, 0x00, 8},
+    {0x0000, 0x00, 8}, /* Gap */
     {0x6041, 0x00, 16},
     {0x6064, 0x00, 32},
     {0x606c, 0x00, 32},
     {0x6077, 0x00, 16},
     {0x6061, 0x00, 8},
-    {0x0000, 0x00, 8},
+    {0x0000, 0x00, 8}, /* Gap */
 };
 
 ec_pdo_info_t slave_0_pdos[] = {
-    {0x1600, 0, slave_0_pdo_entries}, /* csp/csv RxPDO */
-    {0x1a00, 6, slave_0_pdo_entries + 1}, /* csp/csv TxPDO */
+    {0x1600, 6, slave_0_pdo_entries + 0},
+    {0x1a00, 6, slave_0_pdo_entries + 6},
 };
 
 ec_sync_info_t slave_0_syncs[] = {
@@ -123,8 +156,6 @@ ec_sync_info_t slave_0_syncs[] = {
     {3, EC_DIR_INPUT, 1, slave_0_pdos + 1, EC_WD_DISABLE},
     {0xff}
 };
-
-
 /****************************************************************************/
 
 void check_domain1_state(void)
@@ -186,47 +217,17 @@ void check_slave_config_states(void)
 }
 
 /****************************************************************************/
-static int step = 0;
-static int toggle = 1;
-static bool exeFlag = true;
-static uint16_t status;
-static uint16_t control_word;
-static int32_t actual_pos;
-static int8_t mode_disp;
-static int8_t mode;
-static uint16_t errorcode;
-static int32_t target_pos;
-uint16_t cw = 0;
-static int i = 0;
-void cyclic_task()
+
+void cyclic_task(struct timespec time)
 {
-    static int sync_ref_counter = 0;
-    struct timespec time;
 
-    // 每个周期同步主站参考时钟
-    if (sync_ref_counter) {
-        sync_ref_counter--;
-    } else {
-        sync_ref_counter = 1; // 每个周期同步一次
-        clock_gettime(CLOCK_MONOTONIC, &time);
-        ecrt_master_sync_reference_clock_to(master, TIMESPEC2NS(time));
-    }
-
-    // 同步从站时钟到主站
-    ecrt_master_sync_slave_clocks(master);
-
-   
     // receive process data
     ecrt_master_receive(master);
     ecrt_domain_process(domain1);
 
     // check process data state
     check_domain1_state();
-    status = EC_READ_U16(domain1_pd + off_status_word);
-   
-    if(i % 1000 == 0){
-    printf("status word: 0x%04X\n", status);
-    }
+
     if (counter) {
         counter--;
     } else { // do this at 1 Hz
@@ -244,23 +245,67 @@ void cyclic_task()
 
 #if 0
     // read process data
-
     printf("AnaIn: state %u value %u\n",
             EC_READ_U8(domain1_pd + off_ana_in_status),
             EC_READ_U16(domain1_pd + off_ana_in_value));
 #endif
 
 #if 1
+    // write process data
+    status = EC_READ_U16(domain1_pd + off_status_word);
+    mode = EC_READ_S8(domain1_pd + off_mode); 
+    mode_disp = EC_READ_S8(domain1_pd + off_mode_display);
+    
+    switch (status) {
+    case 0x1208:
+    case 0x0208:
+        EC_WRITE_U16(domain1_pd + off_control_word, 0x80);
+        break;
 
-    if(i==2000){
-        EC_WRITE_U16(domain1_pd + off_control_word));
-    }
-        
-        
+    case 0x1221:
+    case 0x0221:
+        EC_WRITE_U16(domain1_pd + off_control_word, 0x07);
+        break;
 
+    case 0x1233:
+    case 0x0233:
+        EC_WRITE_U16(domain1_pd + off_control_word, 0x0F);
+        EC_WRITE_S8(domain1_pd + off_mode, 0x08);
+        break;
 
+    case 0x1237:
+    case 0x0237:
+        EC_WRITE_S32(domain1_pd + off_pos, i*20);
+        break;
+
+    default:
+        break;
+}
+  // Switch On Disabled -> Ready to Switch On
+    // else if ((status & 0x006F) == 0x0021) ctrl_word = 0x0007; // Ready to Switch On -> Switched On
+    // else if ((status & 0x006F) == 0x0023){
+    //     EC_WRITE_S8(domain1_pd + off_mode, 0x08);
+    //     ctrl_word = 0x000F; // Switched On -> Operation Enabled
+    // }
+    // if ((status & 0x08) == 0x08) ctrl_word = 0x0080;
+    
+    // EC_WRITE_U16(domain1_pd + off_control_word, ctrl_word);
+
+    // // 写目标位置只能在 Operation Enabled 时
+    // if ((status & 0x006F) == 0x0027) {
+    //     i = 50000;
+    //     EC_WRITE_S32(domain1_pd + off_pos, i);
+    // }
 #endif
+    if (sync_ref_counter) {
+        sync_ref_counter--;
+    } else {
+        sync_ref_counter = 1; // sync every cycle
 
+        clock_gettime(CLOCK_TO_USE, &time);
+        ecrt_master_sync_reference_clock_to(master, TIMESPEC2NS(time));
+    }
+    ecrt_master_sync_slave_clocks(master);
     // send process data
     ecrt_domain_queue(domain1);
     ecrt_master_send(master);
@@ -280,41 +325,42 @@ void stack_prefault(void)
 int main(int argc, char **argv)
 {
     ec_slave_config_t *sc;
-    struct timespec wakeup_time;
+    struct timespec wakeup_time,time;
+    
     int ret = 0;
-    printf("310");
+
     master = ecrt_request_master(0);
     if (!master) {
         return -1;
     }
-    printf("315");
+
     domain1 = ecrt_master_create_domain(master);
     if (!domain1) {
         return -1;
     }
-    // first slave config
+
     if (!(sc_ana_in = ecrt_master_slave_config(
                     master, FirstSlavePos, TI5MOTOR))) {
         fprintf(stderr, "Failed to get slave configuration.\n");
         return -1;
     }
 
-   
+    printf("Configuring PDOs...\n");
     if (ecrt_slave_config_pdos(sc_ana_in, EC_END, slave_0_syncs)) {
         fprintf(stderr, "Failed to configure PDOs.\n");
         return -1;
     }
 
-
-    printf("339");
-    
+  
 
     if (ecrt_domain_reg_pdo_entry_list(domain1, domain1_regs)) {
         fprintf(stderr, "PDO entry registration failed!\n");
         return -1;
     }
-    ecrt_slave_config_dc(sc_ana_in, 0x0300, PERIOD_NS, 0, 0, 0);
+    printf("off_control_word=%u off_status_word=%u off_mode=%u off_pos=%u off_mode_display=%u\n",
+       off_control_word, off_status_word, off_mode, off_pos, off_mode_display);
 
+    ecrt_slave_config_dc(sc_ana_in, 0x0300, PERIOD_NS, 0, 0, 0);
     printf("Activating master...\n");
     if (ecrt_master_activate(master)) {
         return -1;
@@ -350,15 +396,20 @@ int main(int argc, char **argv)
     wakeup_time.tv_nsec = 0;
 
     while (1) {
+
+        if(i%1000==0){
+            printf("status: 0x%04x,mode: 0x%04x, mode_disp:0x%04x\n", status,mode,mode_disp); 
+
+        }
         ret = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
                 &wakeup_time, NULL);
         if (ret) {
             fprintf(stderr, "clock_nanosleep(): %s\n", strerror(ret));
             break;
         }
-
-        cyclic_task();
-
+        ecrt_master_application_time(master, TIMESPEC2NS(wakeup_time));
+        cyclic_task(time);
+        i++;
         wakeup_time.tv_nsec += PERIOD_NS;
         while (wakeup_time.tv_nsec >= NSEC_PER_SEC) {
             wakeup_time.tv_nsec -= NSEC_PER_SEC;
