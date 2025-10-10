@@ -87,6 +87,7 @@ static unsigned int off_control_word;
 static unsigned int off_mode;
 static unsigned int off_pos;
 static unsigned int off_mode_display;
+static unsigned int off_pos_actual;
 
 const static ec_pdo_entry_reg_t domain1_regs[] = {
     {FirstSlavePos,  TI5MOTOR, 0x6040, 0, &off_control_word},    /* Control Word */
@@ -94,6 +95,7 @@ const static ec_pdo_entry_reg_t domain1_regs[] = {
     {FirstSlavePos,  TI5MOTOR, 0x6041, 0, &off_status_word},     /* Status Word */
     {FirstSlavePos,  TI5MOTOR, 0x6060, 0, &off_mode},            /* Mode of Operation (SINT) */
     {FirstSlavePos,  TI5MOTOR, 0x6061, 0, &off_mode_display},    /* Mode of Operation Display (SINT) */
+    {FirstSlavePos,  TI5MOTOR, 0x6064, 0, &off_pos_actual},  
     {}
 };
 
@@ -106,6 +108,7 @@ static uint16_t ctrl_word = 0;
 
 int8_t mode;
 int8_t mode_disp;
+int32_t pos_actual;
 static int i;
 /****************************************************************************/
 
@@ -218,7 +221,7 @@ void check_slave_config_states(void)
 
 /****************************************************************************/
 
-void cyclic_task(struct timespec time)
+void cyclic_task(struct timespec *time)
 {
 
     // receive process data
@@ -255,29 +258,56 @@ void cyclic_task(struct timespec time)
     status = EC_READ_U16(domain1_pd + off_status_word);
     mode = EC_READ_S8(domain1_pd + off_mode); 
     mode_disp = EC_READ_S8(domain1_pd + off_mode_display);
+    pos_actual = EC_READ_S32(domain1_pd + off_pos_actual);
+    switch (i) {
+    case 5000:
     
-    switch (status) {
-    case 0x1208:
-    case 0x0208:
-        EC_WRITE_U16(domain1_pd + off_control_word, 0x80);
+        EC_WRITE_U16(domain1_pd + off_control_word, 0x06);
+        EC_WRITE_S8(domain1_pd + off_mode, 0x00);
+        printf("5000\n");
         break;
 
-    case 0x1221:
-    case 0x0221:
-        EC_WRITE_U16(domain1_pd + off_control_word, 0x07);
+    case 10000:
+  
+        EC_WRITE_U16(domain1_pd + off_control_word, 0x86);
+        EC_WRITE_S8(domain1_pd + off_mode, 0x00);
+        printf("10000\n");
         break;
 
-    case 0x1233:
-    case 0x0233:
-        EC_WRITE_U16(domain1_pd + off_control_word, 0x0F);
+    case 15000:
+    
+        EC_WRITE_U16(domain1_pd + off_control_word, 0x86);
         EC_WRITE_S8(domain1_pd + off_mode, 0x08);
+        printf("15000\n");
         break;
-
-    case 0x1237:
-    case 0x0237:
-        EC_WRITE_S32(domain1_pd + off_pos, i*20);
+    case 20000:
+    
+        EC_WRITE_U16(domain1_pd + off_control_word, 0x06);
+        EC_WRITE_S8(domain1_pd + off_mode, 0x08);
+        printf("20000\n");
         break;
-
+    case 25000:
+    
+        EC_WRITE_U16(domain1_pd + off_control_word, 0x07);
+        EC_WRITE_S8(domain1_pd + off_mode, 0x08);
+        printf("25000\n");
+        break;
+    case 30000:
+    
+        EC_WRITE_U16(domain1_pd + off_control_word, 0x0f);
+        EC_WRITE_S8(domain1_pd + off_mode, 0x08);
+        printf("30000\n");
+        break;
+    case 35000:
+    
+        EC_WRITE_U16(domain1_pd + off_control_word, 0x1f);
+        EC_WRITE_S8(domain1_pd + off_mode, 0x08);
+        EC_WRITE_S32(domain1_pd + off_pos, 50000);
+        i = -1;
+        printf("starting moving\n");
+        break;
+  
+        
     default:
         break;
 }
@@ -302,8 +332,8 @@ void cyclic_task(struct timespec time)
     } else {
         sync_ref_counter = 1; // sync every cycle
 
-        clock_gettime(CLOCK_TO_USE, &time);
-        ecrt_master_sync_reference_clock_to(master, TIMESPEC2NS(time));
+        clock_gettime(CLOCK_TO_USE, time);
+        ecrt_master_sync_reference_clock_to(master, TIMESPEC2NS(*time));
     }
     ecrt_master_sync_slave_clocks(master);
     // send process data
@@ -325,7 +355,7 @@ void stack_prefault(void)
 int main(int argc, char **argv)
 {
     ec_slave_config_t *sc;
-    struct timespec wakeup_time,time;
+    struct timespec wakeup_time,*time;
     
     int ret = 0;
 
@@ -398,7 +428,7 @@ int main(int argc, char **argv)
     while (1) {
 
         if(i%1000==0){
-            printf("status: 0x%04x,mode: 0x%04x, mode_disp:0x%04x\n", status,mode,mode_disp); 
+            printf("status: 0x%04x,mode: 0x%04x, mode_disp:0x%04x, actual_pos:%d\n", status,mode,mode_disp,pos_actual); 
 
         }
         ret = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
@@ -409,7 +439,10 @@ int main(int argc, char **argv)
         }
         ecrt_master_application_time(master, TIMESPEC2NS(wakeup_time));
         cyclic_task(time);
-        i++;
+        if(i!=-1){
+            i++;
+        }
+        
         wakeup_time.tv_nsec += PERIOD_NS;
         while (wakeup_time.tv_nsec >= NSEC_PER_SEC) {
             wakeup_time.tv_nsec -= NSEC_PER_SEC;
