@@ -16,6 +16,8 @@
 
 
 
+
+
 // 静态成员初始化
 ec_master_t* EtherCATMaster::master = nullptr;
 ec_master_state_t EtherCATMaster::master_state = {};
@@ -50,7 +52,7 @@ unsigned int EtherCATMaster::blink = 0;
 unsigned int EtherCATMaster::sync_ref_counter = 0;
 
 
-ec_pdo_entry_info_t slave_0_pdo_entries[] = {
+ec_pdo_entry_info_t EtherCATMaster::slave_0_pdo_entries[] = {
     {0x6040, 0x00, 16},
     {0x607a, 0x00, 32},
     {0x60ff, 0x00, 32},
@@ -65,12 +67,12 @@ ec_pdo_entry_info_t slave_0_pdo_entries[] = {
     {0x0000, 0x00, 8}, /* Gap */
 };
 
-ec_pdo_info_t slave_0_pdos[] = {
+ec_pdo_info_t EtherCATMaster::slave_0_pdos[] = {
     {0x1600, 6, slave_0_pdo_entries + 0},
     {0x1a00, 6, slave_0_pdo_entries + 6},
 };
 
-ec_sync_info_t slave_0_syncs[] = {
+ec_sync_info_t EtherCATMaster::slave_0_syncs[] = {
     {0, EC_DIR_OUTPUT, 0, NULL, EC_WD_DISABLE},
     {1, EC_DIR_INPUT, 0, NULL, EC_WD_DISABLE},
     {2, EC_DIR_OUTPUT, 1, slave_0_pdos + 0, EC_WD_ENABLE},
@@ -78,6 +80,12 @@ ec_sync_info_t slave_0_syncs[] = {
     {0xff}
 };
 
+EtherCATMaster::period_info EtherCATMaster::pinfo = { {}, 1000000 };
+long EtherCATMaster::frequency = NSEC_PER_SEC/pinfo.period_ns;
+
+EtherCATMaster::EtherCATMaster() { }  
+
+EtherCATMaster::~EtherCATMaster() { } 
 
 void EtherCATMaster::check_domain1_state(void)
 {
@@ -120,24 +128,29 @@ void EtherCATMaster::check_slave_config_states(void)
 {
     ec_slave_config_state_t s;
 
-    ecrt_slave_config_state(sc_ana_in, &s);
+    ecrt_slave_config_state(sc_1, &s);
 
-    if (s.al_state != sc_ana_in_state.al_state) {
+    if (s.al_state != sc_1_state.al_state) {
         printf("AnaIn: State 0x%02X.\n", s.al_state);
     }
-    if (s.online != sc_ana_in_state.online) {
+
+    if (s.online != sc_1_state.online) {
         printf("AnaIn: %s.\n", s.online ? "online" : "offline");
     }
-    if (s.operational != sc_ana_in_state.operational) {
+ 
+    if (s.operational != sc_1_state.operational) {
+     
         printf("AnaIn: %soperational.\n", s.operational ? "" : "Not ");
     }
 
-    sc_ana_in_state = s;
+    sc_1_state = s;
 }
 
 
 void EtherCATMaster::do_rt_task(){
+    
     // receive process data
+  
     ecrt_master_receive(master);
     ecrt_domain_process(domain1);
 
@@ -147,37 +160,41 @@ void EtherCATMaster::do_rt_task(){
     if (counter) {
         counter--;
     } else { // do this at 1 Hz
-        counter = FREQUENCY;
+        counter = frequency;
 
         // calculate new process data
         blink = !blink;
 
         // check for master state (optional)
         check_master_state();
-
+      
         // check for slave configuration state(s) (optional)
         check_slave_config_states();
-
+        }
         // exchange process data
-
+        
         // sync every cycle
         if (sync_ref_counter) {
             sync_ref_counter--;
+         
         } else {
             sync_ref_counter = 1; 
-
-            clock_gettime(CLOCK_TO_USE, time);
-            ecrt_master_sync_reference_clock_to(master, TIMESPEC2NS(*time));
+          
+            clock_gettime(CLOCK_TO_USE, &time);
+       
+            ecrt_master_sync_reference_clock_to(master, TIMESPEC2NS(time));
+         
         }
+      
         ecrt_master_sync_slave_clocks(master);
         // send process data
         ecrt_domain_queue(domain1);
         ecrt_master_send(master);
-    }
+   
 }
 
 
-static void EtherCATMaster::inc_period(struct period_info *pinfo)
+void EtherCATMaster::inc_period(struct period_info *pinfo)
 {
     pinfo->next_period.tv_nsec += pinfo->period_ns;
 
@@ -189,7 +206,7 @@ static void EtherCATMaster::inc_period(struct period_info *pinfo)
 }
 
 
-static void EtherCATMaster::periodic_task_init(struct period_info *pinfo)
+void EtherCATMaster::periodic_task_init(struct period_info *pinfo)
 {
     /* for simplicity, hardcoding a 1 ms period */
     pinfo->period_ns = 1000000;
@@ -198,7 +215,7 @@ static void EtherCATMaster::periodic_task_init(struct period_info *pinfo)
 }
 
 
-static void EtherCATMaster::wait_rest_of_period(struct period_info *pinfo)
+void EtherCATMaster::wait_rest_of_period(struct period_info *pinfo)
 {
     inc_period(pinfo);
 
@@ -208,14 +225,14 @@ static void EtherCATMaster::wait_rest_of_period(struct period_info *pinfo)
 }
 
 
-void EtherCATMaster::*simple_cyclic_task(void *data)
+void* EtherCATMaster::simple_cyclic_task(void *data)
 {
-    struct period_info pinfo;
-
+    EtherCATMaster* self = static_cast<EtherCATMaster*>(data);
+    
     periodic_task_init(&pinfo);
 
     while (1) {
-        do_rt_task();
+        self->do_rt_task();   
         wait_rest_of_period(&pinfo);
     }
 
@@ -229,72 +246,74 @@ int EtherCATMaster::config_rt_params_and_create_pthread(){
     pthread_t thread;
     int ret;
 
-
+  
     /*设置亲和性*/
     cpu_set_t cpuset;
+  
     CPU_ZERO(&cpuset);
+
     CPU_SET(1, &cpuset); // 绑定到 CPU1
-    pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
-
-    /* Lock memory */
-    if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) {
-        printf("mlockall() failed: %m\n");
-        exit(-2);
-    }
-
+ 
     /* Initialize pthread attributes (default values) */
     ret = pthread_attr_init(&attr);
     if (ret) {
         printf("init pthread attributes failed\n");
         goto out;
     }
-
+    pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
+  
+    /* Lock memory */
+    if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) {
+        printf("mlockall() failed: %m\n");
+        exit(-2);
+    }
+  
+    stack_prefault();
+    
+    
+  
     /* Set a specific stack size  */
     ret = pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN + MY_STACK_SIZE);
     if (ret) {
         printf("pthread setstacksize failed\n");
         goto out;
     }
-
+  
     /* Set scheduler policy and priority of pthread */
     ret = pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
     if (ret) {
         printf("pthread setschedpolicy failed\n");
         goto out;
     }
-
-    param.sched_priority = 80;
+   
+    param.sched_priority = 99;
     ret = pthread_attr_setschedparam(&attr, &param);
     if (ret) {
         printf("pthread setschedparam failed\n");
         goto out;
     }
-
+   
     /* Use scheduling parameters of attr */
     ret = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
     if (ret) {
         printf("pthread setinheritsched failed\n");
         goto out;
     }
-
+  
     /* Create a pthread with specified attributes */
-    ret = pthread_create(&thread, &attr, simple_cyclic_task, NULL);
+    ret = pthread_create(&thread, &attr, simple_cyclic_task, this);
     if (ret) {
         printf("create pthread failed: %s\n", strerror(ret));
         goto out;
     }
-
+ 
     ret = pthread_setname_np(thread, "cyclic-rt-1-ms");
     if (ret) {
         printf("failed to set thread name\n");
     }
 
-    /* Join the thread and wait until it is done */
-    ret = pthread_join(thread, NULL);
-    if (ret) {
-        printf("join pthread failed: %m\n");
-    }
-
+    
+  
 out:
     return ret;
 }
@@ -307,8 +326,9 @@ void EtherCATMaster::stack_prefault(void)
 }
 
 
-void EtherCATMaster::init_master(){
+bool EtherCATMaster::init_master(){
     master = ecrt_request_master(0);
+
     if (!master) {
         return false;
     }
@@ -330,7 +350,7 @@ void EtherCATMaster::init_master(){
         return false;
     }
 
-  
+    
 
     if (ecrt_domain_reg_pdo_entry_list(domain1, domain1_regs)) {
         fprintf(stderr, "PDO entry registration failed!\n");
@@ -339,14 +359,16 @@ void EtherCATMaster::init_master(){
     printf("off_control_word=%u off_status_word=%u off_mode=%u off_pos=%u off_mode_display=%u\n",
        off_control_word, off_status_word, off_mode, off_pos, off_mode_display);
 
-    ecrt_slave_config_dc(sc_1, 0x0300, PERIOD_NS, 0, 0, 0);
+    ecrt_slave_config_dc(sc_1, 0x0300, pinfo.period_ns, 0, 0, 0);
+
     printf("Activating master...\n");
     if (ecrt_master_activate(master)) {
         return false;
     }
-
+  
     if (!(domain1_pd = ecrt_domain_data(domain1))) {
         return false;
     }
+  
     return true;
 }

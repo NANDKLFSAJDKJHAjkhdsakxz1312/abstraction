@@ -7,10 +7,16 @@
 #include "ecrt.h"    // EtherCAT 主库接口
 
 
-struct period_info {
-    struct timespec next_period;
-    long period_ns;
-};
+
+
+
+#ifndef CLOCK_TO_USE
+#define CLOCK_TO_USE CLOCK_MONOTONIC
+#endif
+
+#ifndef TIMESPEC2NS
+#define TIMESPEC2NS(ts) ( (uint64_t)(ts).tv_sec * 1000000000ULL + (uint64_t)(ts).tv_nsec )
+#endif
 
 
 
@@ -20,6 +26,7 @@ struct period_info {
 #define MY_STACK_SIZE 8192
 
 
+
 class EtherCATMaster {
 
 public:
@@ -27,7 +34,9 @@ public:
     ~EtherCATMaster();
     // 初始化主站
     bool init_master();
-};
+    // 配置实时线程参数并创建线程
+    int config_rt_params_and_create_pthread();
+
 
 private:
 
@@ -74,7 +83,8 @@ private:
         long period_ns;
     };
 
-    
+    static period_info pinfo;
+    static long frequency;
 
     
     // 检查 Domain 状态
@@ -93,19 +103,16 @@ private:
     static void inc_period(struct period_info *pinfo);
 
     // 初始化周期信息，用户设定周期(纳秒为单位)
-    static void periodic_task_init(struct period_info *pinfo, long period);
+    static void periodic_task_init(struct period_info *pinfo);
 
     // 等待本周期剩余时间，使线程周期稳定
     static void wait_rest_of_period(struct period_info *pinfo);
 
     // 实时循环线程函数 
-    void *simple_cyclic_task(void *data);
-
-    // 配置实时线程参数并创建线程
-    int config_rt_params_and_create_pthread();
+    static void *simple_cyclic_task(void *data);
 
     // 防止缺页异常导致延迟
     void stack_prefault(void);
-
+};
     
 #endif

@@ -1,7 +1,8 @@
 project(EtherCatUserExample C CXX)
 cmake_minimum_required(VERSION 3.2)
 set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_PREFIX_PATH "/home/root/software/ethercat_install" ${CMAKE_PREFIX_PATH})
+list(APPEND CMAKE_PREFIX_PATH "/home/root/software/qtbase5.15.7_install")
+list(APPEND CMAKE_PREFIX_PATH "/home/root/software/ethercat_install")
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -23,28 +24,19 @@ set(PROJECT_SOURCES
     mainwindow.ui
    
 )
-
-if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    qt_add_executable(igh_test
-        MANUAL_FINALIZATION
-        ${PROJECT_SOURCES}
-    )
-else()
-    if(ANDROID)
-        add_library(igh_test SHARED
-            ${PROJECT_SOURCES}
-        )
-    else()
-        add_executable(igh_test
-            ${PROJECT_SOURCES}
-        )
-    endif()
-endif()
+add_executable(igh_test
+main.cpp
+mainwindow.cpp
+mainwindow.h
+mainwindow.ui
+master.cpp
+master.h
+)
 
 # Qt 和 EtherCAT 链接都放在一起
 target_link_libraries(igh_test
     PRIVATE
-        Qt${QT_VERSION_MAJOR}::Widgets
+        Qt::Widgets
         EtherLab::ethercat
 )
 
