@@ -19,6 +19,8 @@
 
 
 // 静态成员初始化
+
+
 ec_master_t* EtherCATMaster::master = nullptr;
 ec_master_state_t EtherCATMaster::master_state = {};
 
@@ -86,6 +88,8 @@ long EtherCATMaster::frequency = NSEC_PER_SEC/pinfo.period_ns;
 EtherCATMaster::EtherCATMaster() { }  
 
 EtherCATMaster::~EtherCATMaster() { } 
+
+
 
 void EtherCATMaster::check_domain1_state(void)
 {
@@ -161,7 +165,7 @@ void EtherCATMaster::do_rt_task(){
         counter--;
     } else { // do this at 1 Hz
         counter = frequency;
-
+        printf("status: 0x%04x,mode: 0x%04x, mode_disp:0x%04x, actual_pos:%d\n", status,mode,mode_disp,pos_actual); 
         // calculate new process data
         blink = !blink;
 
@@ -170,8 +174,38 @@ void EtherCATMaster::do_rt_task(){
       
         // check for slave configuration state(s) (optional)
         check_slave_config_states();
+    }
+        // exchange PDO
+    
+        status = EC_READ_U16(domain1_pd + off_status_word);
+        mode = EC_READ_S8(domain1_pd + off_mode); 
+        mode_disp = EC_READ_S8(domain1_pd + off_mode_display);
+        pos_actual = EC_READ_S32(domain1_pd + off_pos_actual);
+        // printf("status: 0x%04x,mode: 0x%04x, mode_disp:0x%04x, actual_pos:%d\n", status,mode,mode_disp,pos_actual); 
+        if(cw_flag06){
+            EC_WRITE_U16(domain1_pd+off_control_word,0x06);
+            cw_flag06 = false;
         }
-        // exchange process data
+        if(cw_flag07){
+            EC_WRITE_U16(domain1_pd+off_control_word,0x07);
+            cw_flag07 =false;
+        }
+        if(cw_flag0f){
+            EC_WRITE_U16(domain1_pd+off_control_word,0x0f);
+            cw_flag0f =false;
+        }
+        if(cw_flag80){
+            EC_WRITE_U16(domain1_pd+off_control_word,0x80);
+            cw_flag80 =false;
+        }
+        if(mode_flag){
+            EC_WRITE_S8(domain1_pd+off_mode,0X08);
+            mode_flag =false;
+        }
+        if(pos_flag){
+            EC_WRITE_S32(domain1_pd+off_pos,pos_value);
+            
+        }
         
         // sync every cycle
         if (sync_ref_counter) {
@@ -231,9 +265,15 @@ void* EtherCATMaster::simple_cyclic_task(void *data)
     
     periodic_task_init(&pinfo);
 
+    clock_gettime(CLOCK_MONOTONIC, &pinfo.next_period);
+    pinfo.next_period.tv_sec += 1; /* start in future */
+    pinfo.next_period.tv_nsec = 0;
+
     while (1) {
-        self->do_rt_task();   
         wait_rest_of_period(&pinfo);
+        ecrt_master_application_time(master, TIMESPEC2NS(pinfo.next_period));
+        self->do_rt_task();   
+        
     }
 
     return NULL;
@@ -371,4 +411,33 @@ bool EtherCATMaster::init_master(){
     }
   
     return true;
+}
+
+
+void EtherCATMaster::send_control_word06(uint16_t value){
+    cw_flag06 = true;
+    
+}
+void EtherCATMaster::send_control_word07(uint16_t value){
+    cw_flag07 = true;
+    
+}
+void EtherCATMaster::send_control_word0f(uint16_t value){
+    cw_flag0f = true;
+    
+}
+void EtherCATMaster::send_control_word80(uint16_t value){
+    cw_flag80 = true;
+    
+}
+
+void EtherCATMaster::send_target_pos(int32_t value){
+    pos_flag = true;
+    pos_value = value;
+}
+
+void EtherCATMaster::send_mode_of_operation(int8_t value)
+{
+    mode_flag = true;
+    
 }

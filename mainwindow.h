@@ -17,8 +17,11 @@ public:
     ~MainWindow();
 
 private slots:
-    void onSliderValueChanged(int value);
+    void onSliderValueChanged(int32_t value);
     void init_qt();
+    void sendcw_qt();
+    void changemode_qt();
+    void start_rt_thread_qt();
 
 private:
     Ui::MainWindow *ui;

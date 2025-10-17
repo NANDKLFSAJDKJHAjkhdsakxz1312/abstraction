@@ -36,13 +36,23 @@ public:
     bool init_master();
     // 配置实时线程参数并创建线程
     int config_rt_params_and_create_pthread();
-
-
+        // 发送控制字接口
+    void send_control_word06(uint16_t value);
+    void send_control_word07(uint16_t value);
+    void send_control_word0f(uint16_t value);
+    void send_control_word80(uint16_t value);
+    // 发送目标位置接口
+    void send_target_pos(int32_t value );
+    // 改变控制模式接口
+    void send_mode_of_operation(int8_t value);
 private:
 
 
 
     // ---------- 静态成员变量 ----------
+
+    
+
     static ec_master_t* master;                  // EtherCAT Master 对象
     static ec_master_state_t master_state;      // Master 状态
 
@@ -74,8 +84,15 @@ private:
     static ec_pdo_info_t slave_0_pdos[];
     static ec_sync_info_t slave_0_syncs[];
 
+    // PDO 变量
+    uint16_t status = 0;
+    // static uint16_t ctrl_word;
+    int8_t mode= 0;
+    int8_t mode_disp= 0;
+    int32_t pos_actual= 0;
+
     // DC 参数
-    struct timespec wakeupTime, time;
+    struct timespec time;
     
     // 时间及周期结构体
     struct period_info {
@@ -86,7 +103,14 @@ private:
     static period_info pinfo;
     static long frequency;
 
-    
+    // 接口函数标志位
+    bool cw_flag06 = false;   
+    bool cw_flag07 = false;    
+    bool cw_flag0f = false; 
+    bool cw_flag80 = false;  
+    bool mode_flag = false; 
+    bool pos_flag = false; 
+    int32_t pos_value = 0;
     // 检查 Domain 状态
     void check_domain1_state(void);
 
@@ -113,6 +137,8 @@ private:
 
     // 防止缺页异常导致延迟
     void stack_prefault(void);
+
+
 };
     
 #endif
