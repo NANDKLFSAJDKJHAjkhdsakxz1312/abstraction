@@ -17,7 +17,8 @@ public:
     ~MainWindow();
 
 private slots:
-    void onSliderValueChanged(int32_t value);
+    void onSliderValueChanged_0(int32_t value);
+    void onSliderValueChanged_1(int32_t value);
     void init_qt();
     void sendcw_qt();
     void changemode_qt();

@@ -27,25 +27,41 @@ ec_master_state_t EtherCATMaster::master_state = {};
 ec_domain_t* EtherCATMaster::domain1 = nullptr;
 ec_domain_state_t EtherCATMaster::domain1_state = {};
 
+ec_slave_config_t* EtherCATMaster::sc_0 = nullptr;
+ec_slave_config_state_t EtherCATMaster::sc_0_state = {};
+
 ec_slave_config_t* EtherCATMaster::sc_1 = nullptr;
 ec_slave_config_state_t EtherCATMaster::sc_1_state = {};
 
 uint8_t* EtherCATMaster::domain1_pd = nullptr;
 
-unsigned int EtherCATMaster::off_status_word = 0;
-unsigned int EtherCATMaster::off_control_word = 0;
-unsigned int EtherCATMaster::off_mode = 0;
-unsigned int EtherCATMaster::off_pos = 0;
-unsigned int EtherCATMaster::off_mode_display = 0;
-unsigned int EtherCATMaster::off_pos_actual = 0;
+unsigned int EtherCATMaster::off_status_word_0 = 0;
+unsigned int EtherCATMaster::off_control_word_0 = 0;
+unsigned int EtherCATMaster::off_mode_0 = 0;
+unsigned int EtherCATMaster::off_pos_0 = 0;
+unsigned int EtherCATMaster::off_mode_display_0 = 0;
+unsigned int EtherCATMaster::off_pos_actual_0 = 0;
+
+unsigned int EtherCATMaster::off_status_word_1 = 0;
+unsigned int EtherCATMaster::off_control_word_1 = 0;
+unsigned int EtherCATMaster::off_mode_1 = 0;
+unsigned int EtherCATMaster::off_pos_1 = 0;
+unsigned int EtherCATMaster::off_mode_display_1 = 0;
+unsigned int EtherCATMaster::off_pos_actual_1 = 0;
 
 const ec_pdo_entry_reg_t EtherCATMaster::domain1_regs[] = {
-    {FirstSlavePos,  TI5MOTOR, 0x6040, 0, &off_control_word},
-    {FirstSlavePos,  TI5MOTOR, 0x607A, 0, &off_pos},
-    {FirstSlavePos,  TI5MOTOR, 0x6041, 0, &off_status_word},
-    {FirstSlavePos,  TI5MOTOR, 0x6060, 0, &off_mode},
-    {FirstSlavePos,  TI5MOTOR, 0x6061, 0, &off_mode_display},
-    {FirstSlavePos,  TI5MOTOR, 0x6064, 0, &off_pos_actual},
+    {FirstSlavePos,  TI5MOTOR, 0x6040, 0, &off_control_word_0},
+    {FirstSlavePos,  TI5MOTOR, 0x607A, 0, &off_pos_0},
+    {FirstSlavePos,  TI5MOTOR, 0x6041, 0, &off_status_word_0},
+    {FirstSlavePos,  TI5MOTOR, 0x6060, 0, &off_mode_0},
+    {FirstSlavePos,  TI5MOTOR, 0x6061, 0, &off_mode_display_0},
+    {FirstSlavePos,  TI5MOTOR, 0x6064, 0, &off_pos_actual_0},
+    {SecondSlavePos,  TI5MOTOR, 0x6040, 0, &off_control_word_1},
+    {SecondSlavePos,  TI5MOTOR, 0x607A, 0, &off_pos_1},
+    {SecondSlavePos,  TI5MOTOR, 0x6041, 0, &off_status_word_1},
+    {SecondSlavePos,  TI5MOTOR, 0x6060, 0, &off_mode_1},
+    {SecondSlavePos,  TI5MOTOR, 0x6061, 0, &off_mode_display_1},
+    {SecondSlavePos,  TI5MOTOR, 0x6064, 0, &off_pos_actual_1},
     {}
 };
 
@@ -55,24 +71,25 @@ unsigned int EtherCATMaster::sync_ref_counter = 0;
 
 
 ec_pdo_entry_info_t EtherCATMaster::slave_0_pdo_entries[] = {
-    {0x6040, 0x00, 16},
-    {0x607a, 0x00, 32},
-    {0x60ff, 0x00, 32},
-    {0x6071, 0x00, 16},
-    {0x6060, 0x00, 8},
+    {0x6040, 0x00, 16}, /* Control Word */
+    {0x607a, 0x00, 32}, /* Target Position */
+    {0x60ff, 0x00, 32}, /* Target Velocity */
+    {0x6071, 0x00, 16}, /* Target Torque */
+    {0x6060, 0x00, 8}, /* Modes of Operation */
     {0x0000, 0x00, 8}, /* Gap */
-    {0x6041, 0x00, 16},
-    {0x6064, 0x00, 32},
-    {0x606c, 0x00, 32},
-    {0x6077, 0x00, 16},
-    {0x6061, 0x00, 8},
+    {0x6041, 0x00, 16}, /* Status Word */
+    {0x6064, 0x00, 32}, /* Position Actual Value */
+    {0x606c, 0x00, 32}, /* Velocity Actual Value */
+    {0x6077, 0x00, 16}, /* Torque Actual Value */
+    {0x6061, 0x00, 8}, /* Modes of Operation Display */
     {0x0000, 0x00, 8}, /* Gap */
 };
 
 ec_pdo_info_t EtherCATMaster::slave_0_pdos[] = {
-    {0x1600, 6, slave_0_pdo_entries + 0},
-    {0x1a00, 6, slave_0_pdo_entries + 6},
+    {0x1600, 6, slave_0_pdo_entries + 0}, /* csp/csv RxPDO */
+    {0x1a00, 6, slave_0_pdo_entries + 6}, /* csp/csv TxPDO */
 };
+
 
 ec_sync_info_t EtherCATMaster::slave_0_syncs[] = {
     {0, EC_DIR_OUTPUT, 0, NULL, EC_WD_DISABLE},
@@ -81,6 +98,36 @@ ec_sync_info_t EtherCATMaster::slave_0_syncs[] = {
     {3, EC_DIR_INPUT, 1, slave_0_pdos + 1, EC_WD_DISABLE},
     {0xff}
 };
+
+
+ec_pdo_entry_info_t EtherCATMaster::slave_1_pdo_entries[] = {
+    {0x6040, 0x00, 16}, /* Control Word */
+    {0x607a, 0x00, 32}, /* Target Position */
+    {0x60ff, 0x00, 32}, /* Target Velocity */
+    {0x6071, 0x00, 16}, /* Target Torque */
+    {0x6060, 0x00, 8}, /* Modes of Operation */
+    {0x0000, 0x00, 8}, /* Gap */
+    {0x6041, 0x00, 16}, /* Status Word */
+    {0x6064, 0x00, 32}, /* Position Actual Value */
+    {0x606c, 0x00, 32}, /* Velocity Actual Value */
+    {0x6077, 0x00, 16}, /* Torque Actual Value */
+    {0x6061, 0x00, 8}, /* Modes of Operation Display */
+    {0x0000, 0x00, 8}, /* Gap */
+};
+
+ec_pdo_info_t EtherCATMaster::slave_1_pdos[] = {
+    {0x1600, 6, slave_1_pdo_entries + 0}, /* csp/csv RxPDO */
+    {0x1a00, 6, slave_1_pdo_entries + 6}, /* csp/csv TxPDO */
+};
+
+ec_sync_info_t EtherCATMaster::slave_1_syncs[] = {
+    {0, EC_DIR_OUTPUT, 0, NULL, EC_WD_DISABLE},
+    {1, EC_DIR_INPUT, 0, NULL, EC_WD_DISABLE},
+    {2, EC_DIR_OUTPUT, 1, slave_1_pdos + 0, EC_WD_ENABLE},
+    {3, EC_DIR_INPUT, 1, slave_1_pdos + 1, EC_WD_DISABLE},
+    {0xff}
+};
+
 
 EtherCATMaster::period_info EtherCATMaster::pinfo = { {}, 1000000 };
 long EtherCATMaster::frequency = NSEC_PER_SEC/pinfo.period_ns;
@@ -130,21 +177,39 @@ void EtherCATMaster::check_master_state(void)
 
 void EtherCATMaster::check_slave_config_states(void)
 {
+    // ---------------- 从站 0 状态 ----------------
     ec_slave_config_state_t s;
 
-    ecrt_slave_config_state(sc_1, &s);
+    ecrt_slave_config_state(sc_0, &s);
 
-    if (s.al_state != sc_1_state.al_state) {
+    if (s.al_state != sc_0_state.al_state) {
         printf("AnaIn: State 0x%02X.\n", s.al_state);
     }
 
-    if (s.online != sc_1_state.online) {
+    if (s.online != sc_0_state.online) {
         printf("AnaIn: %s.\n", s.online ? "online" : "offline");
     }
  
-    if (s.operational != sc_1_state.operational) {
+    if (s.operational != sc_0_state.operational) {
      
         printf("AnaIn: %soperational.\n", s.operational ? "" : "Not ");
+    }
+
+    sc_0_state = s;
+
+    // ---------------- 从站 1 状态 ----------------
+    ecrt_slave_config_state(sc_1, &s);
+
+    if (s.al_state != sc_1_state.al_state) {
+        printf("Slave1: State 0x%02X.\n", s.al_state);
+    }
+
+    if (s.online != sc_1_state.online) {
+        printf("Slave1: %s.\n", s.online ? "online" : "offline");
+    }
+
+    if (s.operational != sc_1_state.operational) {
+        printf("Slave1: %soperational.\n", s.operational ? "" : "Not ");
     }
 
     sc_1_state = s;
@@ -165,7 +230,8 @@ void EtherCATMaster::do_rt_task(){
         counter--;
     } else { // do this at 1 Hz
         counter = frequency;
-        printf("status: 0x%04x,mode: 0x%04x, mode_disp:0x%04x, actual_pos:%d\n", status,mode,mode_disp,pos_actual); 
+        printf("status_0: 0x%04x,mode_0: 0x%04x, mode_disp_0:0x%04x, actual_pos_0:%d\n", status_0,mode_0,mode_disp_0,pos_actual_0); 
+        printf("status_1: 0x%04x,mode_1: 0x%04x, mode_disp_1:0x%04x, actual_pos_1:%d\n", status_1,mode_1,mode_disp_1,pos_actual_1); 
         // calculate new process data
         blink = !blink;
 
@@ -177,34 +243,49 @@ void EtherCATMaster::do_rt_task(){
     }
         // exchange PDO
     
-        status = EC_READ_U16(domain1_pd + off_status_word);
-        mode = EC_READ_S8(domain1_pd + off_mode); 
-        mode_disp = EC_READ_S8(domain1_pd + off_mode_display);
-        pos_actual = EC_READ_S32(domain1_pd + off_pos_actual);
-        // printf("status: 0x%04x,mode: 0x%04x, mode_disp:0x%04x, actual_pos:%d\n", status,mode,mode_disp,pos_actual); 
+        status_0 = EC_READ_U16(domain1_pd + off_status_word_0);
+        mode_0 = EC_READ_S8(domain1_pd + off_mode_0); 
+        mode_disp_0 = EC_READ_S8(domain1_pd + off_mode_display_0);
+        pos_actual_0 = EC_READ_S32(domain1_pd + off_pos_actual_0);
+
+        status_1 = EC_READ_U16(domain1_pd + off_status_word_1);
+        mode_1 = EC_READ_S8(domain1_pd + off_mode_1); 
+        mode_disp_1 = EC_READ_S8(domain1_pd + off_mode_display_1);
+        pos_actual_1 = EC_READ_S32(domain1_pd + off_pos_actual_1);
+        // printf("status_0: 0x%04x,mode_0: 0x%04x, mode_disp_0:0x%04x, actual_pos:%d\n", status_0,mode_0,mode_disp_0,pos_actual_0); 
         if(cw_flag06){
-            EC_WRITE_U16(domain1_pd+off_control_word,0x06);
+            EC_WRITE_U16(domain1_pd+off_control_word_0,0x06);
+            EC_WRITE_U16(domain1_pd+off_control_word_1,0x06);
             cw_flag06 = false;
         }
         if(cw_flag07){
-            EC_WRITE_U16(domain1_pd+off_control_word,0x07);
+            EC_WRITE_U16(domain1_pd+off_control_word_0,0x07);
+            EC_WRITE_U16(domain1_pd+off_control_word_1,0x07);
             cw_flag07 =false;
         }
         if(cw_flag0f){
-            EC_WRITE_U16(domain1_pd+off_control_word,0x0f);
+            EC_WRITE_U16(domain1_pd+off_control_word_0,0x0f);
+            EC_WRITE_U16(domain1_pd+off_control_word_1,0x0f);
             cw_flag0f =false;
         }
         if(cw_flag80){
-            EC_WRITE_U16(domain1_pd+off_control_word,0x80);
+            EC_WRITE_U16(domain1_pd+off_control_word_0,0x80);
+            EC_WRITE_U16(domain1_pd+off_control_word_1,0x80);
             cw_flag80 =false;
         }
         if(mode_flag){
-            EC_WRITE_S8(domain1_pd+off_mode,0X08);
+            EC_WRITE_S8(domain1_pd+off_mode_0,0X08);
+            EC_WRITE_S8(domain1_pd+off_mode_1,0X08);
+
             mode_flag =false;
         }
-        if(pos_flag){
-            EC_WRITE_S32(domain1_pd+off_pos,pos_value);
+        if(pos_flag_0){
+            EC_WRITE_S32(domain1_pd+off_pos_0,pos_value_0);
             
+        }
+        if(pos_flag_1){
+            
+            EC_WRITE_S32(domain1_pd+off_pos_1,pos_value_1);
         }
         
         // sync every cycle
@@ -261,6 +342,8 @@ void EtherCATMaster::wait_rest_of_period(struct period_info *pinfo)
 
 void* EtherCATMaster::simple_cyclic_task(void *data)
 {
+    int cpu = sched_getcpu();
+    printf("[RT] 实时线程启动，当前运行在 CPU 核心: %d\n", cpu);
     EtherCATMaster* self = static_cast<EtherCATMaster*>(data);
     
     periodic_task_init(&pinfo);
@@ -270,8 +353,11 @@ void* EtherCATMaster::simple_cyclic_task(void *data)
     pinfo.next_period.tv_nsec = 0;
 
     while (1) {
+        
         wait_rest_of_period(&pinfo);
+      
         ecrt_master_application_time(master, TIMESPEC2NS(pinfo.next_period));
+      
         self->do_rt_task();   
         
     }
@@ -300,6 +386,7 @@ int EtherCATMaster::config_rt_params_and_create_pthread(){
         printf("init pthread attributes failed\n");
         goto out;
     }
+
     pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
   
     /* Lock memory */
@@ -351,7 +438,7 @@ int EtherCATMaster::config_rt_params_and_create_pthread(){
     if (ret) {
         printf("failed to set thread name\n");
     }
-
+   
     
   
 out:
@@ -378,14 +465,26 @@ bool EtherCATMaster::init_master(){
         return false;
     }
 
-    if (!(sc_1 = ecrt_master_slave_config(
+    if (!(sc_0 = ecrt_master_slave_config(
                     master, FirstSlavePos, TI5MOTOR))) {
         fprintf(stderr, "Failed to get slave configuration.\n");
         return false;
     }
 
     printf("Configuring PDOs...\n");
-    if (ecrt_slave_config_pdos(sc_1, EC_END, slave_0_syncs)) {
+    if (ecrt_slave_config_pdos(sc_0, EC_END, slave_0_syncs)) {
+        fprintf(stderr, "Failed to configure PDOs.\n");
+        return false;
+    }
+
+    if (!(sc_1 = ecrt_master_slave_config(
+                    master, SecondSlavePos, TI5MOTOR))) {
+        fprintf(stderr, "Failed to get slave configuration.\n");
+        return false;
+    }
+
+    printf("Configuring PDOs...\n");
+    if (ecrt_slave_config_pdos(sc_1, EC_END, slave_1_syncs)) {
         fprintf(stderr, "Failed to configure PDOs.\n");
         return false;
     }
@@ -396,9 +495,10 @@ bool EtherCATMaster::init_master(){
         fprintf(stderr, "PDO entry registration failed!\n");
         return false;
     }
-    printf("off_control_word=%u off_status_word=%u off_mode=%u off_pos=%u off_mode_display=%u\n",
-       off_control_word, off_status_word, off_mode, off_pos, off_mode_display);
+    printf("off_control_word_0=%u off_status_word_0=%u off_mode_0=%u off_pos_0=%u off_mode_display_0=%u\n",
+       off_control_word_0, off_status_word_0, off_mode_0, off_pos_0, off_mode_display_0);
 
+    ecrt_slave_config_dc(sc_0, 0x0300, pinfo.period_ns, 0, 0, 0);
     ecrt_slave_config_dc(sc_1, 0x0300, pinfo.period_ns, 0, 0, 0);
 
     printf("Activating master...\n");
@@ -431,9 +531,14 @@ void EtherCATMaster::send_control_word80(uint16_t value){
     
 }
 
-void EtherCATMaster::send_target_pos(int32_t value){
-    pos_flag = true;
-    pos_value = value;
+void EtherCATMaster::send_target_pos_0(int32_t value){
+    pos_flag_0 = true;
+    pos_value_0 = value;
+}
+
+void EtherCATMaster::send_target_pos_1(int32_t value){
+    pos_flag_1 = true;
+    pos_value_1 = value;
 }
 
 void EtherCATMaster::send_mode_of_operation(int8_t value)

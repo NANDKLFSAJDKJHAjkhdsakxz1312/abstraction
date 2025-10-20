@@ -11,7 +11,8 @@ MainWindow::MainWindow(QWidget *parent)
     
     igh_master = new EtherCATMaster();
     
-    connect(ui->slider, &QSlider::valueChanged, this, &MainWindow::onSliderValueChanged);
+    connect(ui->slider_0, &QSlider::valueChanged, this, &MainWindow::onSliderValueChanged_0);
+    connect(ui->slider_1, &QSlider::valueChanged, this, &MainWindow::onSliderValueChanged_1);
     connect(ui->initButton, &QPushButton::clicked, this, &MainWindow::init_qt);
     connect(ui->sendcwButton, &QPushButton::clicked, this, &MainWindow::sendcw_qt);
     connect(ui->changemodeButton, &QPushButton::clicked, this, &MainWindow::changemode_qt);
@@ -24,12 +25,21 @@ MainWindow::~MainWindow()
     delete igh_master;
 }
 
-void MainWindow::onSliderValueChanged(int32_t value)
+void MainWindow::onSliderValueChanged_0(int32_t value)
 {
     
-    ui->valuelabel->setText(QString("当前值: %1").arg(value));
-    igh_master->send_target_pos(value);
+    ui->valuelabel_0->setText(QString("当前值: %1").arg(value));
+    igh_master->send_target_pos_0(value);
 }
+
+void MainWindow::onSliderValueChanged_1(int32_t value)
+{
+    
+    ui->valuelabel_1->setText(QString("当前值: %1").arg(value));
+    igh_master->send_target_pos_1(value);
+}
+
+
 
 
 void MainWindow::init_qt(){
@@ -55,7 +65,17 @@ void MainWindow::sendcw_qt()
         cw_word = text.toUShort(&ok, 16);
     } else {
         cw_word = text.toUShort(&ok, 10);
-    }
+    }// 静态成员初始化
+
+
+ec_master_t* EtherCATMaster::master = nullptr;
+ec_master_state_t EtherCATMaster::master_state = {};
+
+ec_domain_t* EtherCATMaster::domain1 = nullptr;
+ec_domain_state_t EtherCATMaster::domain1_state = {};
+
+ec_slave_config_t* EtherCATMaster::sc_0 = nullptr;
+ec_slave_config_state_t EtherCATMaster::sc_0_state = {};
 
     if (!ok) {
         qWarning() << "Invalid control word input:" << text;

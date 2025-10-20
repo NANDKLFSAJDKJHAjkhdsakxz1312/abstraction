@@ -14,7 +14,7 @@
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QLabel" name="poslabel">
+   <widget class="QLabel" name="poslabel_0">
     <property name="geometry">
      <rect>
       <x>20</x>
@@ -24,10 +24,10 @@
      </rect>
     </property>
     <property name="text">
-     <string>motor pos</string>
+     <string>motor0 pos</string>
     </property>
    </widget>
-   <widget class="QSlider" name="slider">
+   <widget class="QSlider" name="slider_0">
     <property name="geometry">
      <rect>
       <x>120</x>
@@ -46,7 +46,7 @@
      <enum>Qt::Horizontal</enum>
     </property>
    </widget>
-   <widget class="QLabel" name="valuelabel">
+   <widget class="QLabel" name="valuelabel_0">
     <property name="geometry">
      <rect>
       <x>530</x>
@@ -129,6 +129,51 @@
     </property>
     <property name="text">
      <string>start RT thread</string>
+    </property>
+   </widget>
+   <widget class="QSlider" name="slider_1">
+    <property name="geometry">
+     <rect>
+      <x>120</x>
+      <y>110</y>
+      <width>391</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="minimum">
+     <number>-100000</number>
+    </property>
+    <property name="maximum">
+     <number>100000</number>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Horizontal</enum>
+    </property>
+   </widget>
+   <widget class="QLabel" name="valuelabel_1">
+    <property name="geometry">
+     <rect>
+      <x>530</x>
+      <y>110</y>
+      <width>101</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>value</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="poslabel_1">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>110</y>
+      <width>81</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>motor1 pos</string>
     </property>
    </widget>
   </widget>
