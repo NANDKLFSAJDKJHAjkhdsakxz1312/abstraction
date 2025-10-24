@@ -23,7 +23,9 @@
 #define NSEC_PER_SEC 1000000000
 #define FirstSlavePos  0, 0
 #define SecondSlavePos  0, 1
+#define ThirdSlavePos  0, 2
 #define TI5MOTOR 0x00522227, 0x00009253
+#define ZDLRobot 0x000004d8, 0x00002006
 #define MY_STACK_SIZE 8192
 
 
@@ -45,6 +47,7 @@ public:
     // 发送目标位置接口
     void send_target_pos_0(int32_t value );
     void send_target_pos_1(int32_t value );
+    void send_target_pos_2(int32_t value );
     // 改变控制模式接口
     void send_mode_of_operation(int8_t value);
 private:
@@ -67,6 +70,9 @@ private:
     static ec_slave_config_t* sc_1;             // 从站配置对象
     static ec_slave_config_state_t sc_1_state; // 从站状态
 
+    static ec_slave_config_t* sc_2;             // 从站配置对象
+    static ec_slave_config_state_t sc_2_state; // 从站状态
+
     static uint8_t* domain1_pd;                 // Domain1 的 process data 指针
 
     // PDO 偏移量
@@ -77,12 +83,20 @@ private:
     static unsigned int off_mode_display_0;
     static unsigned int off_pos_actual_0;
 
-    static unsigned int off_status_word_1;
-    static unsigned int off_control_word_1;
-    static unsigned int off_mode_1;
-    static unsigned int off_pos_1;
-    static unsigned int off_mode_display_1;
-    static unsigned int off_pos_actual_1;
+    // static unsigned int off_status_word_1;
+    // static unsigned int off_control_word_1;
+    // static unsigned int off_mode_1;
+    // static unsigned int off_pos_1;
+    // static unsigned int off_mode_display_1;
+    // static unsigned int off_pos_actual_1;
+
+    // static unsigned int off_status_word_2;
+    // static unsigned int off_control_word_2;
+    // static unsigned int off_mode_2;
+    // static unsigned int off_pos_2;
+    // static unsigned int off_mode_display_2;
+    // static unsigned int off_pos_actual_2;
+    static unsigned int off_error_code;
 
     // PDO entry 注册表
     static const ec_pdo_entry_reg_t domain1_regs[];
@@ -100,16 +114,26 @@ private:
     static ec_pdo_info_t slave_1_pdos[];
     static ec_sync_info_t slave_1_syncs[];
 
+    static ec_pdo_entry_info_t slave_2_pdo_entries[];
+    static ec_pdo_info_t slave_2_pdos[];
+    static ec_sync_info_t slave_2_syncs[];
+
     // PDO 变量
     uint16_t status_0 = 0;
     int8_t mode_0= 0;
     int8_t mode_disp_0= 0;
     int32_t pos_actual_0= 0;
 
-    uint16_t status_1 = 0;
-    int8_t mode_1= 1;
-    int8_t mode_disp_1= 0;
-    int32_t pos_actual_1= 0;
+    // uint16_t status_1 = 0;
+    // int8_t mode_1= 0;
+    // int8_t mode_disp_1= 0;
+    // int32_t pos_actual_1= 0;
+
+    // uint16_t status_2 = 0;
+    // int8_t mode_2= 0;
+    // int8_t mode_disp_2= 0;
+    // int32_t pos_actual_2= 0;
+    // uint16_t error_code = 0;
 
     // DC 参数
     struct timespec time;
@@ -130,9 +154,11 @@ private:
     bool cw_flag80 = false;  
     bool mode_flag = false; 
     bool pos_flag_0 = false; 
-    bool pos_flag_1 = false;
+    // bool pos_flag_1 = false;
+    // bool pos_flag_2 = false;
     int32_t pos_value_0 = 0;
-    int32_t pos_value_1 = 0;
+    // int32_t pos_value_1 = 0;
+    // int32_t pos_value_2 = 0;
     // 检查 Domain 状态
     void check_domain1_state(void);
 
@@ -159,6 +185,8 @@ private:
 
     // 防止缺页异常导致延迟
     void stack_prefault(void);
+
+    
 
 
 };
