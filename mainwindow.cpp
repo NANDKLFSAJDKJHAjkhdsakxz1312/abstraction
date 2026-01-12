@@ -9,7 +9,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     
-    igh_master = new EtherCATMaster();
+    igh_master = new ZDLTask();
     
     connect(ui->slider_0, &QSlider::valueChanged, this, &MainWindow::onSliderValueChanged_0);
     // connect(ui->slider_1, &QSlider::valueChanged, this, &MainWindow::onSliderValueChanged_1);
@@ -51,15 +51,15 @@ void MainWindow::onSliderValueChanged_0(int32_t value)
 
 void MainWindow::init_qt(){
     // 初始化主站
-    if(!igh_master->init_master()){
+    if(!igh_master->set_task_attribute(1,98,1000000,0)){
         printf("初始化失败！\n");
     }
     else{
         printf("初始化成功！\n");
     }
     // 配置实时线程参数并创建线程
-    
-}
+     
+} 
 
 
 void MainWindow::sendcw_qt()

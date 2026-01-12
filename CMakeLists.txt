@@ -18,19 +18,13 @@ find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
 find_package(EtherCAT REQUIRED)
 
 set(PROJECT_SOURCES
-    main.cpp
-    mainwindow.cpp
-    mainwindow.h
-    mainwindow.ui
+    main2.cpp
+zdltask.cpp
    
 )
 add_executable(igh_test
-main.cpp
-mainwindow.cpp
-mainwindow.h
-mainwindow.ui
-master.cpp
-master.h
+main2.cpp
+zdltask.cpp
 )
 
 # Qt 和 EtherCAT 链接都放在一起

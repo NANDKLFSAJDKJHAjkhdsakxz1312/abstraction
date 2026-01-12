@@ -2,7 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "master.h"
+#include "zdltask.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -27,6 +27,6 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
-    EtherCATMaster *igh_master;
+    ZDLTask *igh_master;
 };
 #endif // MAINWINDOW_H

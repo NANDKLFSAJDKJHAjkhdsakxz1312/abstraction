@@ -1,0 +1,42 @@
+slaves:
+  - pos: 
+    alias:
+    motor:
+    vendor_id:
+    product_code:
+
+  - pos: 
+    alias:
+    motor:
+    vendor_id:
+    product_code:
+
+others:
+  - pos: 
+    pdo_entries:
+      - index:
+        subindex:
+        bit_length:
+      - index:
+        subindex:
+        bit_length:
+    pdos:
+      - index:
+        num_entries:
+        entries_ptr:
+      - index:
+        num_entries:
+        entries_ptr:
+    syncs:
+      - index:
+        direction:
+        num_pdos:
+        pdos_ptr:
+        watchdog_mode:
+      - index:
+        direction:
+        num_pdos:
+        pdos_ptr:
+        watchdog_mode:
+        
+

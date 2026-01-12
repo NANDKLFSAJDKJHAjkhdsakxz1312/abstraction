@@ -191,7 +191,7 @@ ec_sync_info_t EtherCATMaster::slave_0_syncs[] = {
 EtherCATMaster::period_info EtherCATMaster::pinfo = { {}, 1000000 };
 long EtherCATMaster::frequency = NSEC_PER_SEC/pinfo.period_ns;
 
-EtherCATMaster::EtherCATMaster() { }  
+EtherCATMaster::EtherCATMaster() { }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
 
 EtherCATMaster::~EtherCATMaster() { } 
 
@@ -556,7 +556,7 @@ bool EtherCATMaster::init_master(){
     }
 
     domain1 = ecrt_master_create_domain(master);
-    if (!domain1) {
+    if (!domain1) {pdo_entries
         return false;
     }
 
